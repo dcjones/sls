@@ -14,7 +14,7 @@ sls: stochastic  l-systems
 
 import cairo
 import numpy.random
-from numpy        import array, sin, cos, tan, pi, log, abs
+from numpy        import array, sin, cos, tan, pi, log, abs, sqrt
 from functools    import partial
 from copy         import copy
 from collections  import defaultdict
@@ -190,8 +190,9 @@ _eval_globals = {
     # allow nothing by default
     '__builtins__' : [],
 
-    'abs' : abs,
-    'log' : log,
+    'abs'  : abs,
+    'log'  : log,
+    'sqrt' : sqrt,
 
     # random functions
     'runif' : numpy.random.uniform,
@@ -206,9 +207,12 @@ _eval_globals = {
     'tau' : tau
     }
 
-def eval_args( expr_str ):
+def eval_args( s, expr_str ):
+
+    _eval_locals = { 'k' : s.k }
+
     if expr_str:
-        return tuple(eval( '(' + expr_str + ',)', _eval_globals ))
+        return tuple(eval( '(' + expr_str + ',)', _eval_globals, _eval_locals ))
     else:
         return ()
 
@@ -278,7 +282,7 @@ class state:
         self.symb = _default_symbol_table()
 
         self.xy    = array( [0,0] ) # position
-        self.theta = 0.125          # direction
+        self.theta = 0.75          # direction
 
 
 
@@ -300,11 +304,20 @@ def render( surface, grammar, n, start_nterm = 'S' ):
     ss = []
 
     ctx = cairo.Context(surface)
+    ctx.set_line_width( 1.0 )
+    ctx.set_source_rgb( 0, 0, 0 )
+    ctx.paint()
+    ctx.set_source_rgb( 1, 1, 1 )
 
     # initial state
     s0 = state( exp = [scfg.op( 'S' )],
                 ctx = ctx,
                 ss  = ss )
+
+    s0.xy[0] = surface.get_width() / 2.0
+    s0.xy[1] = surface.get_height()
+    s0.restore()
+
 
     ss.append(s0)
 
@@ -320,7 +333,7 @@ def render( surface, grammar, n, start_nterm = 'S' ):
             # treat the opcode as a operator
             if op.opcode in s.symb:
                 f = s.symb[op.opcode]
-                f( s, eval_args(op.args) )
+                f( s, eval_args( s, op.args ) )
 
 
             # treat the opcode as a nonterminal
