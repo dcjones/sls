@@ -103,10 +103,6 @@ class scfg:
         self.rules[rule.nterm].append( rule )
 
 
-    def render( self ):
-        render( self )
-
-
 
 
 

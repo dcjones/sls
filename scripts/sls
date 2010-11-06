@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+
+import cairo
+import sls
+import argparse
+
+
+
+def main():
+    desc = 'Render a stochastic L-system.'
+
+    ap = argparse.ArgumentParser( description = desc )
+    ap.add_argument( 'in_fn', metavar='in',
+                      help='input grammar file', type=str )
+    ap.add_argument( 'out_fn', metavar='out',
+                      help='output image file', type=str )
+    ap.add_argument( '-n', '--depth', dest='n', type=int, default=10,
+                     help='maximum recursion depth (default: 10)' )
+    ap.add_argument( '-f', '--format', dest='format',
+                     choices=['png','svg','eps','pdf'],
+                     default='png',
+                     help='output image format (default: png)' )
+    ap.add_argument( '-W', '--width', dest='width', type=int, default=800,
+                     help='image width (default: 800)' )
+    ap.add_argument( '-H', '--height', dest='height', type=int, default=600,
+                     help='image height (default: 600)' )
+
+    args = ap.parse_args()
+
+
+    grammar = sls.parse( open(args.in_fn) )
+
+
+    if args.format == 'png':
+        surface = cairo.ImageSurface( cairo.FORMAT_ARGB32, args.width, args.height )
+    elif args.format == 'svg':
+        surface = cairo.SVGSurface( args.out_fn, args.width, args.height )
+    elif args.format == 'eps':
+        surface = cairo.PSSurface( args.out_fn, args.width, args.height )
+    elif args.format == 'pdf':
+        surface = cairo.PDFSurface( args.out_fn, args.width, args.height )
+
+
+    sls.render( surface, grammar, args.n )
+
+
+    if args.format == 'png':
+        surface.write_to_png( args.out_fn )
+
+
+
+if __name__ == '__main__':
+    main()
+
