@@ -14,7 +14,7 @@ sls: stochastic  l-systems
 
 import cairo
 import numpy.random
-from sls.safe_eval import safe_eval
+from sls.safe_eval import safe_compile, safe_eval
 from numpy         import array, sin, cos, tan, pi, log, abs, sqrt
 from functools     import partial
 from copy          import copy
@@ -52,6 +52,8 @@ def weighted_choice( ws ):
 #    drawing commands.
 #
 
+def compile_argexp( argexp ):
+    return safe_compile( '(' + argexp + ',)' ) if argexp else None
 
 
 class scfg:
@@ -60,15 +62,16 @@ class scfg:
     '''
 
     class op:
-        def __init__( self, opcode = None, args = None ):
+        def __init__( self, opcode = None, argexp = None ):
             self.opcode = opcode
-            self.args   = args
+            self.argexp = argexp
+            self.args   = compile_argexp( argexp )
 
         def __repr__( self ):
             s = '%s' % self.opcode
-            if self.args:
+            if self.argexp:
                 s += '( '
-                s += self.args
+                s += self.argexp
                 s += ' )'
             return s
 
@@ -116,57 +119,62 @@ class scfg:
 #
 
 
-def _check_params( n, m, f ):
-    def g(s, args):
-        if len(args) > m:
-            raise Exception( "Too many arguments to %s" % f.__name__ )
-        if len(args) < n:
-            raise Exception( "Too few arguments to %s" % f.__name__ )
-        return f( s, args )
+class Op:
+    def __init__( self, f, def_argexp=None ):
+        self.defaultargs = compile_argexp( def_argexp )
+        self.f = f
 
-    return g
+    def __call__( self, s, args=None ):
+        argres = None
+        if args:
+            argres = eval_args( s, args, 2 )
 
-def op( n, m=None ):
-    return partial( _check_params, n, (m if m is not None and m >= n else n) )
+        if not args or not argres:
+            argres = eval_args( s, self.defaultargs, 2 )
+
+        self.f( s, argres )
 
 
+# convenience decorator
+def op_func( defaultargs=None ):
+    def op_sub( f ):
+        return Op( f, defaultargs )
+    return op_sub
 
-@op(0,1)
+@op_func('300/((20/13.0)**k)')
 def op_forward( s, args ):
-    if args: delta = float(args[0])
-    else:    delta = float(s.symb['F.delta'])
-
+    delta = float(args[0])
     s.line( delta )
 
-@op(0,1)
+@op_func('300/((20/13.0)**k)')
 def op_backward( s, args ):
-    if args: delta = float(args[0])
-    else:    delta = float(s.symb['B.delta'])
-
+    delta = float(args[0])
     s.line( -delta )
 
-@op(0,1)
-def op_left( s, args ):
-    if args: delta = float(args[0])
-    else:    delta = float(s.symb['+.delta'])
+@op_func('w/2.0, h/2.0')
+def op_move( s, args ):
+    (x,y) = (float(args[0]), float(args[1]))
+    s.jump( x, y )
 
+
+@op_func('0.125')
+def op_left( s, args ):
+    delta = float(args[0])
     s.turn( delta )
 
-@op(0,1)
+@op_func('0.125')
 def op_right( s, args ):
-    if args: delta = float(args[0])
-    else:    delta = float(s.symb['-.delta'])
-
+    delta = float(args[0])
     s.turn( -delta )
 
 
-@op(0)
+@op_func()
 def op_push( s, args ):
     sn = s.dup()
     sn.exp = None
     s.ss.append( sn )
 
-@op(0)
+@op_func()
 def op_pop( s, args ):
     sn = s.ss.pop()
     s.set(sn)
@@ -183,7 +191,7 @@ def op_pop( s, args ):
 #
 
 
-_eval_context = {
+eval_context = {
     # allow nothing by default
     '__builtins__' : [],
 
@@ -195,7 +203,6 @@ _eval_context = {
     'runif' : numpy.random.uniform,
     'rnorm' : numpy.random.normal,
 
-
     # trig functions/constants
     'sin' : sin,
     'cos' : cos,
@@ -204,15 +211,17 @@ _eval_context = {
     'tau' : tau
     }
 
-def eval_args( s, expr_str, max_eval_time ):
 
-    _eval_context['k'] = s.k
+def eval_args( s, code, max_eval_time ):
 
-    if expr_str:
+    # update the context to reflect the state s
+    eval_context['k'] = s.k
+
+    if code:
         return tuple(safe_eval(
-                code = '(' + expr_str + ',)',
-                context = _eval_context,
-                timeout_secs = max_eval_time ))
+                code     = code,
+                context  = eval_context,
+                max_secs = max_eval_time ))
     else:
         return ()
 
@@ -227,18 +236,17 @@ def eval_args( s, expr_str, max_eval_time ):
 #
 
 
+
 def _default_symbol_table():
     return { 'F' : op_forward,
              'B' : op_backward,
+             'M' : op_move,
              '+' : op_right,
              '-' : op_left,
              '[' : op_push,
-             ']' : op_pop,
-             'F.delta' : 50,
-             'B.delta' : 50,
-             '+.delta' : 0.05,
-             '-.delta' : 0.05
+             ']' : op_pop
              }
+
 
 
 
@@ -262,6 +270,10 @@ class state:
         self.xy += delta * array([cos(self.theta*tau), sin(self.theta*tau)])
         self.ctx.move_to( *self.xy )
 
+    def jump( self, x, y ):
+        self.xy = (x,y)
+        self.ctx.move_to( x, y )
+
     def line( self, delta ):
         self.xy += delta * array([cos(self.theta*tau), sin(self.theta*tau)])
         self.ctx.line_to( *self.xy )
@@ -273,7 +285,7 @@ class state:
         pass
 
 
-    def __init__( self, exp = [], k = 1, ctx = None, ss = None ):
+    def __init__( self, exp = [], k = 0, ctx = None, ss = None ):
         self.ss  = ss   # state stack
         self.ctx = ctx  # cairo context
         self.k   = k    # the recursion depth
@@ -310,9 +322,12 @@ def render( surface, grammar, n, start_nterm = 'S', max_pops=None, max_eval_time
     ctx.set_source_rgb( 1, 1, 1 )
 
     # initial state
-    s0 = state( exp = [scfg.op( 'S' )],
-                ctx = ctx,
-                ss  = ss )
+    s0 = state( exp     = [scfg.op( 'S' )],
+                ctx     = ctx,
+                ss      = ss )
+
+    eval_context['w'] = surface.get_width()
+    eval_context['h'] = surface.get_height()
 
     s0.xy[0] = surface.get_width() / 2.0
     s0.xy[1] = surface.get_height()
@@ -330,7 +345,7 @@ def render( surface, grammar, n, start_nterm = 'S', max_pops=None, max_eval_time
         if max_pops and pop_count > max_pops:
             break
 
-        if s.k > n: continue
+        if s.k >= n: continue
 
         s.restore()
 
@@ -340,7 +355,7 @@ def render( surface, grammar, n, start_nterm = 'S', max_pops=None, max_eval_time
             # treat the opcode as a operator
             if op.opcode in s.symb:
                 f = s.symb[op.opcode]
-                f( s, eval_args( s, op.args, max_eval_time ) )
+                f( s, op.args )
 
 
             # treat the opcode as a nonterminal
