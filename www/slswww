@@ -1,0 +1,140 @@
+#!/usr/bin/env python
+
+import sls
+import cairo
+import cStringIO
+import cgi
+import cgitb ; cgitb.enable()
+from urllib import urlencode
+
+
+width  = 800
+height = 500
+
+defaultcode = \
+'''
+S = F
+F = [+(runif(0,0.05))F]-(runif(0,0.1))F
+'''
+
+
+html_head = \
+'''
+<html>
+<head>
+<title>Stochastic L-Systems</title>
+<style media="screen" type="text/css">
+p    { text-align: center; font-family: Sans-serif; font-size: x-small }
+body { background-color: #000000; color: #ffffff }
+a:visited { color: #d0d0d0 }
+a:link    { color: #ffffff }
+</style>
+</head>
+<body>
+'''
+
+
+html_links = \
+'''
+<p>
+(<a href="intructions.html">instructions</a>)
+(<a href="examples.html">examples</a>)
+(<a href="https://github.com/dcjones/sls">source code</a>)
+</p>
+'''
+
+html_tail = \
+'''
+</body>
+</html>
+'''
+
+
+
+def render_html(params):
+
+    # make form submit and image url
+    params['render'] = 1
+    render_url = 'slswww?' + urlencode(params)
+    params['render'] = 0
+    code = params['code']
+    del params['code']
+    submit_url = 'slswww?' + urlencode(params)
+
+
+    print 'Content-type: text/html\n'
+
+    print html_head
+
+    print '<p>(Stochastic L-Systems)</p>'
+    print '<p><img width="%d" height="%d" src="%s"></p>' % (width,height,render_url)
+    print '<form action="%s" method="post">' % (submit_url,)
+    print '<p><textarea name="code" cols="60" rows="10">'
+    print code
+    print '</textarea></p>'
+    #print '<p><input type='
+    print '<p><input type="submit" value="Render!" /></p>'
+    print '</form>'
+    print html_links
+
+    print html_tail
+
+
+
+def render_png(params):
+    lg = open('/tmp/sls.log','w', buffering=0)
+    lg.write( 'start logging\n' )
+    lg.write( repr(params) + '\n' )
+
+    grammar = sls.parse(params['code'])
+
+    lg.write( repr(grammar) + '\n' )
+
+    lg.write( 'grammar\n' )
+
+    surface = cairo.ImageSurface( cairo.FORMAT_ARGB32, width, height )
+
+    lg.write( 'surface\n' )
+
+    sls.render( surface, grammar, n=params['n'] )
+
+    lg.write( 'render\n' )
+
+    img = cStringIO.StringIO()
+    surface.write_to_png( img )
+
+    lg.write( 'write\n' )
+
+    img.seek(0)
+    print "Content-type: image/png\n"
+    print img.read()
+
+    lg.write( 'read\n' )
+
+
+
+
+def main():
+    form = cgi.FieldStorage()
+
+    def param( key, default, valtype=str ):
+        return (key, valtype(form[key].value) if key in form \
+                     else valtype(default))
+
+    params = dict( [
+                param( 'render', 0, int ),
+                param( 'n', 10, int ),
+                param( 'code', defaultcode, str ) ] )
+
+
+    if params['render']:
+        render_png(params)
+    else:
+        render_html(params)
+
+
+
+if __name__ == '__main__':
+    main()
+
+

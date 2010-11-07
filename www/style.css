@@ -1,0 +1,15 @@
+
+body {
+    background-color: #000000;
+    color: #ffffff;
+    font-family: Sans-serif;
+}
+
+p {
+    font-size: small;
+}
+
+a:visited { color: #d0d0d0 }
+a:link    { color: #ffffff }
+
+

@@ -12,7 +12,7 @@ setup( name         = 'sls',
                         'argparse',
                         'python (>=2.6, <3.0)' ],
        py_modules   = [ 'sls.core', 'sls.parser' ],
-       scripts      = [ 'scripts/sls' ]
+       scripts      = [ 'scripts/sls', 'scripts/slswww' ]
        )
 
 
