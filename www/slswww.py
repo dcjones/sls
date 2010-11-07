@@ -47,6 +47,7 @@ def render_html(params):
     a:visited { color: #d0d0d0 }
     a:link    { color: #ffffff }
     textarea  { spellcheck: "false"; background-color: #101010; color: #ffffff; border: 0 }
+    input     { spellcheck: "false"; background-color: #101010; color: #ffffff; border: 0 }
     </style>
     </head>
     <body>
@@ -86,6 +87,7 @@ def render_html(params):
     print '<p><textarea name="code" cols="60" rows="10">'
     print code
     print '</textarea></p>'
+    print '<p>Depth: <input size="4" maxlength="4" type="text" name="n" value="%d" />' % params['n']
     print '<p><input type="submit" value="Render!" /></p>'
     print '</form>'
     print html_links
@@ -130,7 +132,7 @@ def main():
     form = cgi.FieldStorage()
 
     def param( key, default, valtype=str ):
-        return (key, valtype(form[key].value) if key in form \
+        return (key, valtype(form.getfirst(key)) if key in form \
                      else valtype(default))
 
     params = dict( [

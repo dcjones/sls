@@ -160,12 +160,12 @@ def op_move( s, args ):
 @op_func('0.125')
 def op_left( s, args ):
     delta = float(args[0])
-    s.turn( delta )
+    s.turn( -delta )
 
 @op_func('0.125')
 def op_right( s, args ):
     delta = float(args[0])
-    s.turn( -delta )
+    s.turn( delta )
 
 
 @op_func()
