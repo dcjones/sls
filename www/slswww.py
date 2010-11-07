@@ -55,7 +55,7 @@ def render_html(params):
     html_links = \
     '''
     <p>
-    (<a href="intructions.html">instructions</a>)
+    (<a href="instructions.html">instructions</a>)
     (<a href="https://github.com/dcjones/sls">source code</a>)
     '''
     html_links += '(<a href="%s?%s">author</a>)</p>\n' % (prog, urlencode( { 'code' : easter_egg_code }) )
