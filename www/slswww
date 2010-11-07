@@ -52,6 +52,9 @@ html_tail = \
 
 
 def render_html(params):
+    '''
+    Write an html interface to sls.
+    '''
 
     # make form submit and image url
     params['render'] = 1
@@ -72,7 +75,6 @@ def render_html(params):
     print '<p><textarea name="code" cols="60" rows="10">'
     print code
     print '</textarea></p>'
-    #print '<p><input type='
     print '<p><input type="submit" value="Render!" /></p>'
     print '</form>'
     print html_links
@@ -82,34 +84,26 @@ def render_html(params):
 
 
 def render_png(params):
-    lg = open('/tmp/sls.log','w', buffering=0)
-    lg.write( 'start logging\n' )
-    lg.write( repr(params) + '\n' )
+    '''
+    Write a PNG rendering of a l-system.
+    '''
 
     grammar = sls.parse(params['code'])
 
-    lg.write( repr(grammar) + '\n' )
-
-    lg.write( 'grammar\n' )
-
     surface = cairo.ImageSurface( cairo.FORMAT_ARGB32, width, height )
 
-    lg.write( 'surface\n' )
-
-    sls.render( surface, grammar, n=params['n'] )
-
-    lg.write( 'render\n' )
+    sls.render( surface = surface,
+                grammar = grammar,
+                n       = params['n'],
+                max_pops      = 1e5,
+                max_eval_time = 2 )
 
     img = cStringIO.StringIO()
     surface.write_to_png( img )
 
-    lg.write( 'write\n' )
-
     img.seek(0)
     print "Content-type: image/png\n"
     print img.read()
-
-    lg.write( 'read\n' )
 
 
 

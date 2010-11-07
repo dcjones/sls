@@ -14,11 +14,12 @@ sls: stochastic  l-systems
 
 import cairo
 import numpy.random
-from numpy        import array, sin, cos, tan, pi, log, abs, sqrt
-from functools    import partial
-from copy         import copy
-from collections  import defaultdict
-from sys          import stdout, stderr
+from sls.safe_eval import safe_eval
+from numpy         import array, sin, cos, tan, pi, log, abs, sqrt
+from functools     import partial
+from copy          import copy
+from collections   import defaultdict
+from sys           import stdout, stderr
 
 # Pi is wrong, angles are specified on a [0,1] scale in terms of tau = 2pi
 tau = 2*pi
@@ -182,7 +183,7 @@ def op_pop( s, args ):
 #
 
 
-_eval_globals = {
+_eval_context = {
     # allow nothing by default
     '__builtins__' : [],
 
@@ -203,12 +204,15 @@ _eval_globals = {
     'tau' : tau
     }
 
-def eval_args( s, expr_str ):
+def eval_args( s, expr_str, max_eval_time ):
 
-    _eval_locals = { 'k' : s.k }
+    _eval_context['k'] = s.k
 
     if expr_str:
-        return tuple(eval( '(' + expr_str + ',)', _eval_globals, _eval_locals ))
+        return tuple(safe_eval(
+                code = '(' + expr_str + ',)',
+                context = _eval_context,
+                timeout_secs = max_eval_time ))
     else:
         return ()
 
@@ -291,7 +295,7 @@ def render_error( msg ):
 
 
 
-def render( surface, grammar, n, start_nterm = 'S' ):
+def render( surface, grammar, n, start_nterm = 'S', max_pops=None, max_eval_time=10 ):
     '''
     Render the given grammar on the given surface at a depth of n.
     '''
@@ -314,11 +318,18 @@ def render( surface, grammar, n, start_nterm = 'S' ):
     s0.xy[1] = surface.get_height()
     s0.restore()
 
+    pop_count = 0
 
     ss.append(s0)
 
     while ss:
         s = ss.pop()
+
+        # optionally prevent the evaluation from running out of control
+        pop_count += 1
+        if max_pops and pop_count > max_pops:
+            break
+
         if s.k > n: continue
 
         s.restore()
@@ -329,7 +340,7 @@ def render( surface, grammar, n, start_nterm = 'S' ):
             # treat the opcode as a operator
             if op.opcode in s.symb:
                 f = s.symb[op.opcode]
-                f( s, eval_args( s, op.args ) )
+                f( s, eval_args( s, op.args, max_eval_time ) )
 
 
             # treat the opcode as a nonterminal

@@ -11,8 +11,8 @@ setup( name         = 'sls',
                         'cairo',
                         'argparse',
                         'python (>=2.6, <3.0)' ],
-       py_modules   = [ 'sls.core', 'sls.parser' ],
-       scripts      = [ 'scripts/sls', 'scripts/slswww' ]
+       py_modules   = [ 'sls.core', 'sls.parser', 'sls.safe_eval' ],
+       scripts      = [ 'scripts/sls' ]
        )
 
 
