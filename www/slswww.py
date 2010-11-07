@@ -3,16 +3,16 @@
 import sls
 import cairo
 import cStringIO
-import bz2
-import binascii
 import cgi
 import cgitb ; cgitb.enable()
-from urllib import urlencode
+from os.path import basename
+from urllib  import urlencode
 
 
 width  = 800
 height = 500
 
+prog = basename(__file__)
 
 
 
@@ -52,15 +52,13 @@ def render_html(params):
     <body>
     '''
 
-
     html_links = \
     '''
     <p>
     (<a href="intructions.html">instructions</a>)
-    (<a href="examples.html">examples</a>)
     (<a href="https://github.com/dcjones/sls">source code</a>)
     '''
-    html_links += '(<a href="slswww?%s">author</a>)</p>\n' % urlencode( { 'code' : easter_egg_code } )
+    html_links += '(<a href="%s?%s">author</a>)</p>\n' % (prog, urlencode( { 'code' : easter_egg_code }) )
 
 
     html_tail = \
@@ -71,11 +69,11 @@ def render_html(params):
 
     # make form submit and image url
     params['render'] = 1
-    render_url = 'slswww?' + urlencode(params)
+    render_url = ('%s?' % prog) + urlencode(params)
     params['render'] = 0
     code = params['code']
     del params['code']
-    submit_url = 'slswww?' + urlencode(params)
+    submit_url = ('%s?' % prog) + urlencode(params)
 
 
     print 'Content-type: text/html\n'
@@ -102,6 +100,8 @@ def render_png(params):
     '''
 
     if params['code'].strip('\n') == easter_egg_code.strip('\n'):
+        import bz2
+        import binascii
         print "Content-type: image/jpeg\n"
         print bz2.decompress(binascii.a2b_base64(easter_egg_img.replace('\n','')))
         return
