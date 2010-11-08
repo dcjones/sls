@@ -19,8 +19,8 @@ prog = basename(__file__)
 # a reasonably attractive looking tree thing
 ex01 = \
 '''
-S = F(100)
-F = [+(runif(-0.1,0.1))F]-(runif(-0.1,0.1))F
+S -> F(100)
+F -> [+(runif(-0.1,0.1))F]-(runif(-0.1,0.1))F
 '''
 
 

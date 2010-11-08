@@ -25,7 +25,7 @@ def SLSExpr( support, stream ):
 
 @function_matcher_factory()
 def SLSToken( regexp ):
-    regexp = r'\s*(' + regexp + ')\s*'
+    regexp = r'\s*(' + regexp + ')\s*(#.*\n)?'
     def match( support, stream ):
         mat = re.match( regexp, str(stream) )
         if not mat: return None
@@ -54,12 +54,17 @@ def make_rule( xs ):
     else:
         return sls.scfg.rule( nterm=nterm, ops=ops )
 
+class equivication:
+    def __init__( self, ab ):
+        self.a = ab[0]
+        self.b = ab[1]
 
 
 # The grammar itself.
 
 
 equals    = SLSToken( r'=' )                       >> nop
+derives   = SLSToken( r'->' )                      >> nop
 colon     = SLSToken( r':' )                       >> nop
 lparen    = SLSToken( r'\(' )                      >> nop
 rparen    = SLSToken( r'\)' )                      >> nop
@@ -69,8 +74,9 @@ op        = symb & ~lparen & expr & ~rparen | symb >= make_op
 ops       = Delayed()
 ops      += op & ops | op                          >= nop
 nterm     = symb | symb & ~colon & Float()         > nop
-rule      = nterm & ~equals & ops                  >= make_rule
-
+equiv     = symb & ~equals  & symb                 >= equivication
+rule      = nterm & ~derives & ops                 >= make_rule
+sls_line  = equiv | rule
 
 
 class ParserError:
@@ -87,13 +93,17 @@ def parse( S ):
 
     grammar = sls.scfg()
     for line in S:
-        if re.match( r'^\s*$', line ): continue
+        if re.match( r'^\s*(#.*\n)?$', line ): continue
         try:
-            r = rule.parse(line)
+            r = sls_line.parse(line)
         except:
             raise ParserError( k )
 
-        grammar.add_rule( r )
+        if isinstance(r,sls.scfg.rule):
+            grammar.add_rule( r )
+        elif isinstance(r,equivication):
+            grammar.equivicate( r.a, r.b )
+
         k += 1
 
     return grammar

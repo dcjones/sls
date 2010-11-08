@@ -17,7 +17,7 @@ import numpy.random
 from sls.safe_eval import safe_compile, safe_eval
 from numpy         import array, sin, cos, tan, pi, log, abs, sqrt
 from functools     import partial
-from copy          import copy
+from copy          import copy, deepcopy
 from collections   import defaultdict
 from sys           import stdout, stderr
 
@@ -89,6 +89,15 @@ class scfg:
 
     def __init__( self ):
         self.rules = defaultdict(list)
+        self.primitives = \
+                   { 'F' : op_forward,
+                     'B' : op_backward,
+                     'M' : op_move,
+                     '+' : op_right,
+                     '-' : op_left,
+                     '[' : op_push,
+                     ']' : op_pop
+                     }
 
 
     def __call__( self, nterm ):
@@ -106,7 +115,11 @@ class scfg:
     def add_rule( self, rule ):
         self.rules[rule.nterm].append( rule )
 
-
+    def equivicate( self, a, b ):
+        if a in self.primitives:
+            self.primitives[b] = self.primitives[a]
+        else:
+            self.primitives[a] = self.primitives[b]
 
 
 
@@ -127,11 +140,8 @@ class Op:
     def __call__( self, s, args=None ):
         argres = None
         if args:
-            argres = eval_args( s, args, 2 )
-
-        if not args or not argres:
-            argres = eval_args( s, self.defaultargs, 2 )
-
+            self.defaultargs = args
+        argres = eval_args( s, self.defaultargs, 2 )
         self.f( s, argres )
 
 
@@ -170,15 +180,11 @@ def op_right( s, args ):
 
 @op_func()
 def op_push( s, args ):
-    sn = s.dup()
-    sn.exp = None
-    s.ss.append( sn )
+    s.push_state()
 
 @op_func()
 def op_pop( s, args ):
-    sn = s.ss.pop()
-    s.set(sn)
-    s.restore()
+    s.pop_state()
 
 
 
@@ -191,36 +197,13 @@ def op_pop( s, args ):
 #
 
 
-eval_context = {
-    # allow nothing by default
-    '__builtins__' : [],
 
-    'abs'  : abs,
-    'log'  : log,
-    'sqrt' : sqrt,
-
-    # random functions
-    'runif' : numpy.random.uniform,
-    'rnorm' : numpy.random.normal,
-
-    # trig functions/constants
-    'sin' : sin,
-    'cos' : cos,
-    'tan' : tan,
-    'pi'  : pi,
-    'tau' : tau
-    }
-
-
-def eval_args( s, code, max_eval_time ):
-
-    # update the context to reflect the state s
-    eval_context['k'] = s.k
+def eval_args( T, code, max_eval_time ):
 
     if code:
         return tuple(safe_eval(
                 code     = code,
-                context  = eval_context,
+                context  = T.eval_context,
                 max_secs = max_eval_time ))
     else:
         return ()
@@ -237,64 +220,91 @@ def eval_args( s, code, max_eval_time ):
 
 
 
-def _default_symbol_table():
-    return { 'F' : op_forward,
-             'B' : op_backward,
-             'M' : op_move,
-             '+' : op_right,
-             '-' : op_left,
-             '[' : op_push,
-             ']' : op_pop
-             }
 
+class turtle_state:
+    '''
+    Represents a stored state.  Most of the state is push and poped in the cairo
+    context, but some things we must track ourselves.
+    '''
 
-
-
-class state:
-
-    def restore( self ):
-        self.ctx.move_to( *self.xy )
-
-    def set( self, s ):
-        self.xy    = copy(s.xy)
-        self.theta = s.theta
-        self.k     = s.k
-
+    def __init__( self ):
+        self.angle    = None
+        self.xy       = None
 
     def dup( self ):
-        sn    = copy(self)
-        sn.xy = copy(self.xy)
-        return sn
+        return deepcopy( self )
 
-    def move( self, delta ):
-        self.xy += delta * array([cos(self.theta*tau), sin(self.theta*tau)])
-        self.ctx.move_to( *self.xy )
+
+
+class turtle:
+    '''
+    Drawer of lines.
+    '''
+
+    def pos( self ):
+        return array( list(self.ctx.get_current_point()) )
+
+    def line( self, d ):
+        self.state.xy += d * array( [ sin(self.state.angle * tau),
+                                      cos(self.state.angle * tau) ] )
+        self.ctx.line_to( *self.state.xy )
+
+    def move( self, d ):
+        self.state.xy += d * array( [ sin(self.state.angle * tau),
+                                      cos(self.state.angle * tau) ] )
+        self.ctx.line_to( *self.state.xy )
 
     def jump( self, x, y ):
-        self.xy = (x,y)
-        self.ctx.move_to( x, y )
+        self.state.xy = array([x,y])
+        self.ctx.move_to( *self.state.xy )
 
-    def line( self, delta ):
-        self.xy += delta * array([cos(self.theta*tau), sin(self.theta*tau)])
-        self.ctx.line_to( *self.xy )
+    def turn( self, d ):
+        self.state.angle += d;
 
-    def turn( self, delta ):
-        self.theta += delta
+    def push_state( self ):
+        self.ctx.save()
+        self.state_stack.append( self.state )
+        self.state = self.state.dup()
 
-    def rel_line_to( self, delta ):
-        pass
+    def pop_state( self ):
+        self.ctx.restore()
+        self.state = self.state_stack.pop()
+        self.jump( *self.state.xy ) # update cairo context
+
+    def __init__( self, ctx ):
+        self.ctx   = ctx
+
+        self.state_stack = []
+        self.state       = turtle_state()
+        self.state.angle = 0.5
+        self.state.xy    = self.pos()
+        self.k           = 0
 
 
-    def __init__( self, exp = [], k = 0, ctx = None, ss = None ):
-        self.ss  = ss   # state stack
-        self.ctx = ctx  # cairo context
-        self.k   = k    # the recursion depth
-        self.exp = exp  # the sequence of operations pending
+        self.eval_context = {
+            # allow nothing by default
+            '__builtins__' : None,
 
-        self.symb = _default_symbol_table()
+            'abs'  : abs,
+            'log'  : log,
+            'sqrt' : sqrt,
 
-        self.xy    = array( [0,0] ) # position
-        self.theta = 0.75          # direction
+            # random functions
+            'runif' : numpy.random.uniform,
+            'rnorm' : numpy.random.normal,
+
+            # trig functions/constants
+            'sin' : sin,
+            'cos' : cos,
+            'tan' : tan,
+            'pi'  : pi,
+            'tau' : tau,
+
+            # variables
+            'k' : self.k
+            }
+
+
 
 
 
@@ -312,69 +322,64 @@ def render( surface, grammar, n, start_nterm = 'S', max_pops=None, max_eval_time
     Render the given grammar on the given surface at a depth of n.
     '''
 
-    # state stack
-    ss = []
 
     ctx = cairo.Context(surface)
+
+    # default drawing settings
     ctx.set_line_width( 1.0 )
     ctx.set_source_rgb( 0, 0, 0 )
     ctx.paint()
     ctx.set_source_rgb( 1, 1, 1 )
 
-    # initial state
-    s0 = state( exp     = [scfg.op( 'S' )],
-                ctx     = ctx,
-                ss      = ss )
+    # turtle
+    T = turtle( ctx )
+    T.eval_context['w'] = surface.get_width()
+    T.eval_context['h'] = surface.get_height()
 
-    eval_context['w'] = surface.get_width()
-    eval_context['h'] = surface.get_height()
 
-    s0.xy[0] = surface.get_width() / 2.0
-    s0.xy[1] = surface.get_height()
-    s0.restore()
+    # start out in the bottom middle
+    T.jump( surface.get_width() / 2.0, surface.get_height() )
 
+
+    # watch to make sure evaluation doesn't run out of control
     pop_count = 0
 
-    ss.append(s0)
+    # operation stack
+    S = []
+    S.append( [scfg.op('S')] )
 
-    while ss:
-        s = ss.pop()
 
-        # optionally prevent the evaluation from running out of control
+    while S:
+        ops = S.pop()
+        #print ops
+        #print S
+
         pop_count += 1
         if max_pops and pop_count > max_pops:
             break
 
-        if s.k >= n: continue
+        for (i,op) in enumerate(ops):
 
-        s.restore()
+            rule = grammar(op.opcode)
 
+            if op.opcode in grammar.primitives:
+                # arguments always default to the last seen
+                if op.args:
+                    grammar.primitives[op.opcode].defaultargs = op.args
 
-        for (i,op) in enumerate(s.exp):
-
-            # treat the opcode as a operator
-            if op.opcode in s.symb:
-                f = s.symb[op.opcode]
-                f( s, op.args )
-
+                if len(S) >= n or not rule:
+                    #print op
+                    turtle.k = len(S) - 1
+                    f = grammar.primitives[op.opcode]
+                    f( T, op.args )
+                    continue
 
             # treat the opcode as a nonterminal
-            rule = grammar(op.opcode)
-            if rule:
-                if i < len(s.exp)-1:
-                    s.exp = s.exp[i+1:]
-                    ss.append(s)
-
-                if s.k + 1 <= n:
-                    sn = s.dup()
-                    sn.exp = rule.ops
-                    sn.k   = s.k + 1
-                    ss.append(sn)
-
+            if rule and len(S) < n:
+                S.append( ops[i+1:] )
+                S.append( rule.ops )
                 break
 
-            if not (op.opcode in s.symb or rule):
-                render_error( 'Unknown symbol %r\n' % op.opcode )
 
     ctx.stroke()
 

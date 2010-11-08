@@ -224,6 +224,29 @@ Functions
 
 
 
+Todo
+----
+
+Here a list of future work that could be done.
+
+* Efficiency: SLS is rather slow right now, mostly as a result of evaluating
+  python expressions. This could be improved by memoizing the results of
+  expressions whose values will not change.
+
+* More drawing primitives: in particular
+
+  - Color
+  - Curves
+  - Polygons
+
+* Random examples: come up with some handsome examples and provide an option in
+  the website to draw one randomly.
+
+* Allow comments within SLS programs.
+
+
+Footnotes
+---------
 
 .. [#] A "symbol" in SLS is any letter, upper or lower case, followed by any
        number of digits.
