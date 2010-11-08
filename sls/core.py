@@ -337,7 +337,6 @@ def render( surface, grammar, n, start_nterm = 'S', max_pops=None, max_eval_time
     Render the given grammar on the given surface at a depth of n.
     '''
 
-
     ctx = cairo.Context(surface)
 
     # default drawing settings

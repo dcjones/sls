@@ -13,7 +13,7 @@ setup( name         = 'sls',
                         'numpy',
                         'argparse',
                         'python (>=2.6, <3.0)' ],
-       py_modules   = [ 'sls.core', 'sls.parser', 'sls.safe_eval' ],
+       py_modules   = [ 'sls.core', 'sls.parser', 'sls.safe_eval', 'sls.examples' ],
        scripts      = [ 'scripts/sls' ]
        )
 

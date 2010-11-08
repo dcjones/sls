@@ -25,8 +25,8 @@ def SLSExpr( support, stream ):
 
 @function_matcher_factory()
 def SLSToken( regexp ):
-    regexp = r'\s*(' + regexp + ')\s*(#.*\n)?'
-    def match( support, stream ):
+    regexp = r'\s*(' + regexp + ')\s*(#.*)?'
+    def match( support, stream, flags=re.DOTALL ):
         mat = re.match( regexp, str(stream) )
         if not mat: return None
         (i,j) = mat.span(1)
@@ -93,7 +93,7 @@ def parse( S ):
 
     grammar = sls.scfg()
     for line in S:
-        if re.match( r'^\s*(#.*\n)?$', line ): continue
+        if re.match( r'^\s*(#.*)?$', line, flags=re.DOTALL ): continue
         try:
             r = sls_line.parse(line)
         except:

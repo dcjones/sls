@@ -5,8 +5,12 @@ import cairo
 import cStringIO
 import cgi
 import cgitb ; cgitb.enable()
-from os.path import basename
-from urllib  import urlencode
+import numpy.random
+import time
+from random       import choice
+from sls.examples import examples
+from os.path      import basename
+from urllib       import urlencode
 
 
 width  = 800
@@ -16,15 +20,8 @@ prog = basename(__file__)
 
 
 
-# a reasonably attractive looking tree thing
-ex01 = \
-'''
-S -> F(100)
-F -> [+(runif(-0.1,0.1))F]-(runif(-0.1,0.1))F
-'''
 
-
-defaultcode = ex01
+defaultcode = choice(examples)
 
 
 
@@ -56,6 +53,7 @@ def render_html(params):
     html_links = \
     '''
     <p>
+    (<a href="slswww.py">random</a>)
     (<a href="instructions.html">instructions</a>)
     (<a href="https://github.com/dcjones/sls">source code</a>)
     '''
@@ -101,7 +99,7 @@ def render_png(params):
     Write a PNG rendering of a l-system.
     '''
 
-    if params['code'].strip('\n') == easter_egg_code.strip('\n'):
+    if params['code'].strip('\n\r') == easter_egg_code.strip('\n\r'):
         import bz2
         import binascii
         print "Content-type: image/jpeg\n"
@@ -136,10 +134,12 @@ def main():
                      else valtype(default))
 
     params = dict( [
+                param( 'seed', int(time.time()), int ),
                 param( 'render', 0, int ),
-                param( 'n', 10, int ),
-                param( 'code', defaultcode, str ) ] )
+                param( 'n', defaultcode.n, int ),
+                param( 'code', defaultcode.code, str ) ] )
 
+    numpy.random.seed( params['seed'] )
     params['code'] = params['code'].strip('\n')
 
     if params['render']:
