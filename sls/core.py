@@ -24,6 +24,9 @@ from sys           import stdout, stderr
 # Pi is wrong, angles are specified on a [0,1] scale in terms of tau = 2pi
 tau = 2*pi
 
+# where else is this defined?
+code_t = type(compile( '0', '', 'eval' ))
+
 def weighted_choice( ws ):
     '''
     Given a list of numbers, return i with probability:
@@ -52,9 +55,6 @@ def weighted_choice( ws ):
 #    drawing commands.
 #
 
-def compile_argexp( argexp ):
-    return safe_compile( '(' + argexp + ',)' ) if argexp else None
-
 
 class scfg:
     '''
@@ -65,7 +65,7 @@ class scfg:
         def __init__( self, opcode = None, argexp = None ):
             self.opcode = opcode
             self.argexp = argexp
-            self.args   = compile_argexp( argexp )
+            self.args   = compile_args( argexp )
 
         def __repr__( self ):
             s = '%s' % self.opcode
@@ -123,6 +123,66 @@ class scfg:
 
 
 
+#
+# Operator argument evaluation
+# ----------------------------
+# The arguments to the drawing primitives are evaluated as python expressions.
+# Basic math and pseudo-random number functions are provided, but there are no
+# state changes allowed.
+#
+_default_eval_context = { \
+            # allow nothing by default
+            '__builtins__' : None,
+
+            'abs'  : abs,
+            'log'  : log,
+            'sqrt' : sqrt,
+
+            # random functions
+            'runif' : numpy.random.uniform,
+            'rnorm' : numpy.random.normal,
+
+            # trig functions/constants
+            'sin' : sin,
+            'cos' : cos,
+            'tan' : tan,
+            'pi'  : pi,
+            'tau' : tau,
+            }
+
+
+# If any of these names are used in an expression, it is evaluated every time,
+# rather than just once.
+_volatile_eval_context = set( [ 'k', 'w', 'h', 'runif', 'rnorm' ] )
+
+
+
+def compile_args( argexp ):
+    code = safe_compile( '(' + argexp + ',)' ) if argexp else None
+
+    if code:
+        # if compiled code is constant, evaluate it just once to speed things up
+        if set(code.co_names).isdisjoint( _volatile_eval_context ):
+            code = eval_args( _default_eval_context, code, 2 )
+
+    return code
+
+
+
+
+def eval_args( eval_context, code, max_eval_time ):
+
+    if type(code) == tuple:
+        return code
+    elif type(code) == code_t:
+        return tuple(safe_eval(
+                code     = code,
+                context  = eval_context,
+                max_secs = max_eval_time ))
+    else:
+        return ()
+
+
 
 #
 # Section II. Predefined operators
@@ -134,14 +194,14 @@ class scfg:
 
 class Op:
     def __init__( self, f, def_argexp=None ):
-        self.defaultargs = compile_argexp( def_argexp )
+        self.defaultargs = compile_args( def_argexp )
         self.f = f
 
     def __call__( self, s, args=None ):
         argres = None
         if args:
             self.defaultargs = args
-        argres = eval_args( s, self.defaultargs, 2 )
+        argres = eval_args( s.eval_context, self.defaultargs, 2 )
         self.f( s, argres )
 
 
@@ -185,28 +245,6 @@ def op_push( s, args ):
 @op_func()
 def op_pop( s, args ):
     s.pop_state()
-
-
-
-#
-# Operator argument evaluation
-# ----------------------------
-# The arguments to the drawing primitives are evaluated as python expressions.
-# Basic math and pseudo-random number functions are provided, but there are no
-# state changes allowed.
-#
-
-
-
-def eval_args( T, code, max_eval_time ):
-
-    if code:
-        return tuple(safe_eval(
-                code     = code,
-                context  = T.eval_context,
-                max_secs = max_eval_time ))
-    else:
-        return ()
 
 
 
@@ -281,31 +319,8 @@ class turtle:
         self.k           = 0
 
 
-        self.eval_context = {
-            # allow nothing by default
-            '__builtins__' : None,
-
-            'abs'  : abs,
-            'log'  : log,
-            'sqrt' : sqrt,
-
-            # random functions
-            'runif' : numpy.random.uniform,
-            'rnorm' : numpy.random.normal,
-
-            # trig functions/constants
-            'sin' : sin,
-            'cos' : cos,
-            'tan' : tan,
-            'pi'  : pi,
-            'tau' : tau,
-
-            # variables
-            'k' : self.k
-            }
-
-
-
+        self.eval_context = _default_eval_context
+        self.eval_context['k'] = self.k
 
 
 
