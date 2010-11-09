@@ -113,8 +113,7 @@ def render_png(params):
     sls.render( surface = surface,
                 grammar = grammar,
                 n       = params['n'],
-                max_pops      = 1e5,
-                max_eval_time = 2 )
+                max_pops      = 1e5 )
 
     img = cStringIO.StringIO()
     surface.write_to_png( img )
