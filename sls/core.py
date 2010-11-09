@@ -16,7 +16,6 @@ import cairo
 import numpy.random
 from sls.safe_eval import safe_compile, safe_eval
 from numpy         import array, sin, cos, tan, pi, log, abs, sqrt
-from functools     import partial
 from copy          import copy, deepcopy
 from collections   import defaultdict
 from sys           import stdout, stderr
@@ -130,7 +129,8 @@ class scfg:
 # Basic math and pseudo-random number functions are provided, but there are no
 # state changes allowed.
 #
-_default_eval_context = { \
+
+eval_global_context = { \
             # allow nothing by default
             '__builtins__' : None,
 
@@ -163,22 +163,19 @@ def compile_args( argexp ):
     if code:
         # if compiled code is constant, evaluate it just once to speed things up
         if set(code.co_names).isdisjoint( _volatile_eval_context ):
-            code = eval_args( _default_eval_context, code, 2 )
+            code = eval_args( code, eval_global_context, {} )
 
     return code
 
 
 
 
-def eval_args( eval_context, code, max_eval_time ):
+def eval_args( code, global_context, local_context ):
 
     if type(code) == tuple:
         return code
     elif type(code) == code_t:
-        return tuple(safe_eval(
-                code     = code,
-                context  = eval_context,
-                max_secs = max_eval_time ))
+        return tuple(eval( code, global_context, local_context ))
     else:
         return ()
 
@@ -199,9 +196,11 @@ class Op:
 
     def __call__( self, s, args=None ):
         argres = None
-        if args:
-            self.defaultargs = args
-        argres = eval_args( s.eval_context, self.defaultargs, 2 )
+
+        # default args always reflect those last used
+        if args: self.defaultargs = args
+
+        argres = eval_args( self.defaultargs, eval_global_context, s.eval_context )
         self.f( s, argres )
 
 
@@ -270,7 +269,10 @@ class turtle_state:
         self.xy       = None
 
     def dup( self ):
-        return deepcopy( self )
+        a = turtle_state()
+        a.angle = copy(self.angle)
+        a.xy    = copy(self.xy)
+        return a
 
 
 
@@ -319,7 +321,7 @@ class turtle:
         self.k           = 0
 
 
-        self.eval_context = _default_eval_context
+        self.eval_context = {}
         self.eval_context['k'] = self.k
 
 
@@ -332,7 +334,7 @@ def render_error( msg ):
 
 
 
-def render( surface, grammar, n, start_nterm = 'S', max_pops=None, max_eval_time=10 ):
+def render( surface, grammar, n, start_nterm = 'S', max_pops=None ):
     '''
     Render the given grammar on the given surface at a depth of n.
     '''
