@@ -127,8 +127,7 @@ def render_error( surface, error  ):
     ctx.set_font_size( 14 )
 
 
-    #msg = '(' + type(error).__name__ + ') '
-    msg = '(' + str(error.args) + ')'
+    msg = '(' + type(error).__name__ + ') '
     (tw,th) = ctx.text_extents( msg )[2:4]
     ctx.move_to( width / 2.0 - tw/2.0, height / 2.0 + 2*th0 )
     ctx.show_text( msg )
@@ -223,6 +222,7 @@ def main():
                 param( 'code', defaultcode.code, str ) ] )
 
     numpy.random.seed( params['seed'] )
+    params['seed'] = int(time.time())
     params['code'] = params['code'].strip('\n')
 
     if params['render']:

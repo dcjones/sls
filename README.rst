@@ -121,7 +121,7 @@ is then fed to the turtle who does the drawing.
 
 
 
-Equivication
+Equivocation
 ^^^^^^^^^^^^
 
 Suppose we have the simple program::
@@ -133,7 +133,7 @@ Expanding the axiom we end up with the string::
     XXXX...
 
 However, ``X`` is not a drawing primitive, and so it does nothing. It is
-sometimes useful to equivicate symbols, so that ``X`` behaves as ``F`` for
+sometimes useful to equivocate symbols, so that ``X`` behaves as ``F`` for
 example. This is done with the simple syntax::
 
     X = F
@@ -245,21 +245,20 @@ Todo
 
 Here a list of future work that could be done.
 
-* Efficiency: SLS is rather slow right now, mostly as a result of evaluating
-  python expressions. This could be improved by memoizing the results of
-  expressions whose values will not change.
-
 * More drawing primitives: in particular
-
   - Color
   - Curves
   - Polygons
 
+* Expression constants and functions:
+  - turtle orientation and position
+  - random choice from a list
+  - geometric distribution
+
 * Random examples: come up with some handsome examples and provide an option in
   the website to draw one randomly.
 
-* Allow comments within SLS programs.
-
+* User submitted examples.
 
 Footnotes
 ---------
