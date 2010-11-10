@@ -127,6 +127,13 @@ def render_error( surface, error  ):
     ctx.set_font_size( 14 )
 
 
+    #msg = '(' + type(error).__name__ + ') '
+    msg = '(' + str(error.args) + ')'
+    (tw,th) = ctx.text_extents( msg )[2:4]
+    ctx.move_to( width / 2.0 - tw/2.0, height / 2.0 + 2*th0 )
+    ctx.show_text( msg )
+
+
     if type(error) == RenderTimeout:
         msg = 'Rendering your image is taking too long.'
     if type(error) == ParserError:
@@ -135,7 +142,7 @@ def render_error( surface, error  ):
         msg = 'A mysterious, unidentifiable error occoured. Please report this.'
 
     (tw,th) = ctx.text_extents( msg )[2:4]
-    ctx.move_to( width / 2.0 - tw/2.0, height / 2.0 + 2*th0 )
+    ctx.move_to( width / 2.0 - tw/2.0, height / 2.0 + 3*th0 )
     ctx.show_text( msg )
 
 
@@ -149,6 +156,7 @@ def render_png(params):
 
     class RenderThread(threading.Thread):
         def __init__( self, surface, grammar, n, max_pops=None ):
+            threading.Thread.__init__( self )
             self.surface  = surface
             self.grammar  = grammar
             self.n        = n

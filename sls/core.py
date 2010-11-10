@@ -210,12 +210,12 @@ def op_func( defaultargs=None ):
         return Op( f, defaultargs )
     return op_sub
 
-@op_func('300/((20/13.0)**k)')
+@op_func('50')
 def op_forward( s, args ):
     delta = float(args[0])
     s.line( delta )
 
-@op_func('300/((20/13.0)**k)')
+@op_func('50')
 def op_backward( s, args ):
     delta = float(args[0])
     s.line( -delta )
