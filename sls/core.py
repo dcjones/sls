@@ -311,6 +311,11 @@ class turtle:
         self.state = self.state_stack.pop()
         self.jump( *self.state.xy ) # update cairo context
 
+    def set_k( self, k ):
+        self.k = k
+        self.eval_context['k'] = self.k
+
+
     def __init__( self, ctx ):
         self.ctx   = ctx
 
@@ -318,11 +323,8 @@ class turtle:
         self.state       = turtle_state()
         self.state.angle = 0.5
         self.state.xy    = self.pos()
-        self.k           = 0
-
-
         self.eval_context = {}
-        self.eval_context['k'] = self.k
+        self.set_k( 0 )
 
 
 
@@ -385,7 +387,7 @@ def render( surface, grammar, n, start_nterm = 'S', max_pops=None ):
 
                 if len(S) >= n or not rule:
                     #print op
-                    turtle.k = len(S) - 1
+                    T.set_k( len(S) - 1 )
                     f = grammar.primitives[op.opcode]
                     f( T, op.args )
                     continue
