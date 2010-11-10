@@ -79,7 +79,7 @@ rule      = nterm & ~derives & ops                 >= make_rule
 sls_line  = equiv | rule
 
 
-class ParserError:
+class ParserError(Exception):
     def __init__( self, k ):
         self.k = k
 
@@ -93,6 +93,7 @@ def parse( S ):
 
     grammar = sls.scfg()
     for line in S:
+        k += 1
         if re.match( r'^\s*(#.*)?$', line, flags=re.DOTALL ): continue
         try:
             r = sls_line.parse(line)
@@ -104,7 +105,6 @@ def parse( S ):
         elif isinstance(r,equivication):
             grammar.equivicate( r.a, r.b )
 
-        k += 1
 
     return grammar
 

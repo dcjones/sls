@@ -4,23 +4,33 @@ import sls
 import cairo
 import cStringIO
 import cgi
-import cgitb ; cgitb.enable()
+#import cgitb ; cgitb.enable()
 import numpy.random
 import time
+import threading
 from random       import choice
 from sls.examples import examples
+from sls.parser   import ParserError
 from os.path      import basename
 from urllib       import urlencode
 
 
-width  = 800
-height = 500
+width    = 800
+height   = 500
 
 prog = basename(__file__)
 
 
 
 
+
+# Prevent rendering hugely complex images.
+max_secs = 10
+class RenderTimeout(Exception): pass
+
+
+
+# If no code is specified, choose a random example
 defaultcode = choice(examples)
 
 
@@ -94,11 +104,64 @@ def render_html(params):
 
 
 
+
+def render_error( surface, error  ):
+    '''
+    When the L-system can not be rendered, render instead an error messege.
+    '''
+
+    ctx = cairo.Context( surface )
+
+    ctx.set_source_rgb( 0, 0, 0 )
+    ctx.paint()
+
+    ctx.set_source_rgb( 1, 1, 1 )
+    ctx.select_font_face( 'Courier' )
+    ctx.set_font_size( 20 )
+
+    msg = 'You fucked up!'
+    (tw0,th0) = ctx.text_extents( msg )[2:4]
+    ctx.move_to( width / 2.0 - tw0/2.0, height / 2.0 )
+    ctx.show_text( msg )
+
+    ctx.set_font_size( 14 )
+
+
+    if type(error) == RenderTimeout:
+        msg = 'Rendering your image is taking too long.'
+    if type(error) == ParserError:
+        msg = 'Could not parse line %d of your program\n' % (error.k-1)
+    else:
+        msg = 'A mysterious, unidentifiable error occoured. Please report this.'
+
+    (tw,th) = ctx.text_extents( msg )[2:4]
+    ctx.move_to( width / 2.0 - tw/2.0, height / 2.0 + 2*th0 )
+    ctx.show_text( msg )
+
+
+
+
+
 def render_png(params):
     '''
     Write a PNG rendering of a l-system.
     '''
 
+    class RenderThread(threading.Thread):
+        def __init__( self, surface, grammar, n, max_pops=None ):
+            self.surface  = surface
+            self.grammar  = grammar
+            self.n        = n
+            self.max_pops = max_pops
+
+        def run( self ):
+            sls.render( surface  = self.surface,
+                        grammar  = self.grammar,
+                        n        = self.n,
+                        max_pops = self.max_pops )
+
+
+    # render author image
     if params['code'].strip('\n\r') == easter_egg_code.strip('\n\r'):
         import bz2
         import binascii
@@ -106,14 +169,27 @@ def render_png(params):
         print bz2.decompress(binascii.a2b_base64(easter_egg_img.replace('\n','')))
         return
 
-    grammar = sls.parse(params['code'])
 
     surface = cairo.ImageSurface( cairo.FORMAT_ARGB32, width, height )
 
-    sls.render( surface = surface,
-                grammar = grammar,
-                n       = params['n'],
-                max_pops      = 1e5 )
+    try:
+        grammar = sls.parse(params['code'])
+
+        t = RenderThread( surface  = surface,
+                          grammar  = grammar,
+                          n        = params['n'],
+                          max_pops = None )
+
+        t.start()
+        t.join( max_secs )
+
+        if t.isAlive():
+            raise RenderTimeout
+
+    except Exception as error:
+        surface = cairo.ImageSurface( cairo.FORMAT_ARGB32, width, height )
+        render_error( surface, error )
+
 
     img = cStringIO.StringIO()
     surface.write_to_png( img )
