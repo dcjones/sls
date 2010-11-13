@@ -135,7 +135,7 @@ def render_error( surface, error  ):
 
     if type(error) == RenderTimeout:
         msg = 'Rendering your image is taking too long.'
-    if type(error) == ParserError:
+    elif type(error) == ParserError:
         msg = 'Could not parse line %d of your program\n' % (error.k-1)
     else:
         msg = 'A mysterious, unidentifiable error occoured. Please report this.'
