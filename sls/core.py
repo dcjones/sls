@@ -92,6 +92,11 @@ class scfg:
                    { 'F' : op_forward,
                      'B' : op_backward,
                      'M' : op_move,
+                     'r' : op_red,
+                     'g' : op_green,
+                     'b' : op_blue,
+                     'a' : op_alpha,
+                     'w' : op_width,
                      '+' : op_right,
                      '-' : op_left,
                      '[' : op_push,
@@ -245,7 +250,30 @@ def op_push( s, args ):
 def op_pop( s, args ):
     s.pop_state()
 
+@op_func('0.0')
+def op_red( s, args ):
+    delta = float(args[0])
+    s.add_red( delta )
 
+@op_func('0.0')
+def op_green( s, args ):
+    delta = float(args[0])
+    s.add_green( delta )
+
+@op_func('0.0')
+def op_blue( s, args ):
+    delta = float(args[0])
+    s.add_blue( delta )
+
+@op_func('0.0')
+def op_alpha( s, args ):
+    delta = float(args[0])
+    s.add_alpha( delta )
+
+@op_func('0.0')
+def op_width( s, args ):
+    delta = float(args[0])
+    s.add_width( delta )
 
 
 #
@@ -267,11 +295,15 @@ class turtle_state:
     def __init__( self ):
         self.angle    = None
         self.xy       = None
+        self.color    = array( [1.0,1.0,1.0,1.0] )
+        self.width    = 1.0
 
     def dup( self ):
         a = turtle_state()
         a.angle = copy(self.angle)
         a.xy    = copy(self.xy)
+        a.color = copy(self.color)
+        a.width = self.width
         return a
 
 
@@ -289,11 +321,6 @@ class turtle:
                                       cos(self.state.angle * tau) ] )
         self.ctx.line_to( *self.state.xy )
 
-    def move( self, d ):
-        self.state.xy += d * array( [ sin(self.state.angle * tau),
-                                      cos(self.state.angle * tau) ] )
-        self.ctx.line_to( *self.state.xy )
-
     def jump( self, x, y ):
         self.state.xy = array([x,y])
         self.ctx.move_to( *self.state.xy )
@@ -301,15 +328,36 @@ class turtle:
     def turn( self, d ):
         self.state.angle += d;
 
+    def add_rgba( self, d, i ):
+        self.stroke_preserve()
+        self.state.color[i] += d
+        self.state.color[i] = min( max( self.state.color[i], 0.0 ), 1.0 )
+        self.ctx.set_source_rgba( *self.state.color )
+
+    def stroke_preserve( self ):
+        self.ctx.stroke()
+        self.jump( *self.state.xy )
+
+    def add_width( self, d ):
+        self.stroke_preserve()
+        self.state.width = max( 0.0, self.state.width + d )
+        self.ctx.set_line_width( self.state.width )
+
+    def add_red  ( self, d ): self.add_rgba( d, 0 )
+    def add_green( self, d ): self.add_rgba( d, 1 )
+    def add_blue ( self, d ): self.add_rgba( d, 2 )
+    def add_alpha( self, d ): self.add_rgba( d, 3 )
+
     def push_state( self ):
-        self.ctx.save()
         self.state_stack.append( self.state )
         self.state = self.state.dup()
 
     def pop_state( self ):
-        self.ctx.restore()
+        self.stroke_preserve()
         self.state = self.state_stack.pop()
         self.jump( *self.state.xy ) # update cairo context
+        self.ctx.set_source_rgba( *self.state.color )
+        self.ctx.set_line_width( self.state.width )
 
     def set_k( self, k ):
         self.k = k
@@ -327,7 +375,6 @@ class turtle:
         self.set_k( 0 )
 
 
-
 def render_error( msg ):
     stderr.write( 'Error:' )
     stderr.write( msg )
@@ -336,7 +383,7 @@ def render_error( msg ):
 
 
 
-def render( surface, grammar, n, start_nterm = 'S', max_pops=None ):
+def render( surface, w, h, grammar, n, start_nterm = 'S', max_pops=None ):
     '''
     Render the given grammar on the given surface at a depth of n.
     '''
@@ -347,16 +394,18 @@ def render( surface, grammar, n, start_nterm = 'S', max_pops=None ):
     ctx.set_line_width( 1.0 )
     ctx.set_source_rgb( 0, 0, 0 )
     ctx.paint()
-    ctx.set_source_rgb( 1, 1, 1 )
+    ctx.set_source_rgba( 1, 1, 1, 1 )
+    ctx.set_antialias( cairo.ANTIALIAS_GRAY )
 
     # turtle
     T = turtle( ctx )
-    T.eval_context['w'] = surface.get_width()
-    T.eval_context['h'] = surface.get_height()
+
+    T.eval_context['w'] = w
+    T.eval_context['h'] = h
 
 
     # start out in the bottom middle
-    T.jump( surface.get_width() / 2.0, surface.get_height() )
+    T.jump( w / 2.0, h )
 
 
     # watch to make sure evaluation doesn't run out of control

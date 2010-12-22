@@ -41,7 +41,7 @@ def main():
         surface = cairo.PDFSurface( args.out_fn, args.width, args.height )
 
 
-    sls.render( surface, grammar, args.n )
+    sls.render( surface, args.width, args.height, grammar, args.n )
 
 
     if args.format == 'png':

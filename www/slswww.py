@@ -154,15 +154,19 @@ def render_png(params):
     '''
 
     class RenderThread(threading.Thread):
-        def __init__( self, surface, grammar, n, max_pops=None ):
+        def __init__( self, surface, w, h, grammar, n, max_pops=None ):
             threading.Thread.__init__( self )
             self.surface  = surface
+            self.w        = w
+            self.h        =h
             self.grammar  = grammar
             self.n        = n
             self.max_pops = max_pops
 
         def run( self ):
             sls.render( surface  = self.surface,
+                        w        = self.w,
+                        h        = self.h,
                         grammar  = self.grammar,
                         n        = self.n,
                         max_pops = self.max_pops )
@@ -183,6 +187,8 @@ def render_png(params):
         grammar = sls.parse(params['code'])
 
         t = RenderThread( surface  = surface,
+                          w        = width,
+                          h        = height,
                           grammar  = grammar,
                           n        = params['n'],
                           max_pops = None )
