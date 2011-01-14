@@ -92,6 +92,7 @@ class scfg:
                    { 'F' : op_forward,
                      'B' : op_backward,
                      'M' : op_move,
+                     'J' : op_jump,
                      'r' : op_red,
                      'g' : op_green,
                      'b' : op_blue,
@@ -225,8 +226,13 @@ def op_backward( s, args ):
     delta = float(args[0])
     s.line( -delta )
 
-@op_func('w/2.0, h/2.0')
+@op_func('50')
 def op_move( s, args ):
+    delta = float(args[0])
+    s.move( delta )
+
+@op_func('w/2.0, h/2.0')
+def op_jump( s, args ):
     (x,y) = (float(args[0]), float(args[1]))
     s.jump( x, y )
 
@@ -321,6 +327,11 @@ class turtle:
                                       cos(self.state.angle * tau) ] )
         self.ctx.line_to( *self.state.xy )
 
+    def move( self, d ):
+        self.state.xy += d * array( [ sin(self.state.angle * tau),
+                                      cos(self.state.angle * tau) ] )
+        self.ctx.move_to( *self.state.xy )
+
     def jump( self, x, y ):
         self.state.xy = array([x,y])
         self.ctx.move_to( *self.state.xy )
@@ -395,7 +406,6 @@ def render( surface, w, h, grammar, n, start_nterm = 'S', max_pops=None ):
     ctx.set_source_rgb( 0, 0, 0 )
     ctx.paint()
     ctx.set_source_rgba( 1, 1, 1, 1 )
-    ctx.set_antialias( cairo.ANTIALIAS_GRAY )
 
     # turtle
     T = turtle( ctx )
